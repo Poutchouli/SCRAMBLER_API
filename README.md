@@ -1,7 +1,7 @@
 TLDR:
-git clone repro
-docker compose up -d
-open the frontend.html with whatever browser
+-git clone repro
+-docker compose up -d
+-open the frontend.html with whatever browser
 
 # Scrambler API
 
