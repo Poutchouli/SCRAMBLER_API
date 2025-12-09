@@ -1,3 +1,8 @@
+TLDR:
+git clone repro
+docker compose up -d
+open the frontend.html with whatever browser
+
 # Scrambler API
 
 FastAPI + CLI service to profile CSVs and generate synthetic CSVs that match the original schema constraints. Includes HTML demo, Docker, and CLI tooling.
