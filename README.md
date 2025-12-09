@@ -1,10 +1,11 @@
 # TLDR:
 
 -git clone repro
-
 -docker compose up -d
 
--open the frontend.html or the ugly view at http://localhost:18062/ with whatever browser
+
+open the frontend.html or the ugly view at http://localhost:18062/ with most browsers
+API doc at http://localhost:18062/docs if you fancy adding to other tools
 
 # Scrambler API
 
