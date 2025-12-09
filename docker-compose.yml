@@ -1,0 +1,11 @@
+services:
+  scrambler:
+    build: .
+    image: scrambler:latest
+    ports:
+      - "18062:58008"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PORT=58008
+      - CORS_ORIGINS=*
+    restart: unless-stopped
