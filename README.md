@@ -4,7 +4,7 @@
 
 -docker compose up -d
 
--open the frontend.html with whatever browser
+-open the frontend.html or the ugly view at http://localhost:18062/ with whatever browser
 
 # Scrambler API
 
