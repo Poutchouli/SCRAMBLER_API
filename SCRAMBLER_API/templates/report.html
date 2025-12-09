@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Scrambler API Demo</title>
+  <style>
+    body { font-family: "Source Sans Pro", system-ui, sans-serif; margin: 24px; background: #f6f7fb; color: #0f172a; }
+    h1 { margin-bottom: 8px; }
+    section { background: white; padding: 16px; margin-bottom: 16px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+    label { display: block; margin: 8px 0 4px; font-weight: 600; }
+    input, select { padding: 8px; width: 100%; box-sizing: border-box; }
+    button { margin-top: 12px; padding: 10px 14px; background: #0ea5e9; border: none; color: white; font-weight: 700; border-radius: 6px; cursor: pointer; }
+    button:disabled { background: #94a3b8; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #e2e8f0; padding: 8px; font-size: 14px; text-align: left; }
+    th { background: #e0f2fe; }
+    .status { margin-top: 8px; font-size: 14px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #e2e8f0; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Scrambler API</h1>
+  <p>Upload a CSV, inspect inferred constraints, and generate synthetic data.</p>
+
+  <section>
+    <form id="profileForm">
+      <label for="file">CSV file (<= 50 MB, 100k lines)</label>
+      <input type="file" id="file" name="file" accept=".csv" required />
+
+      <label for="mode">Mode</label>
+      <select id="mode" name="mode">
+        <option value="fast" selected>Fast (sampled)</option>
+        <option value="strict">Strict (full scan)</option>
+      </select>
+
+      <label for="rows">Rows to generate (<= 100000)</label>
+      <input type="number" id="rows" name="rows" value="1000" min="1" max="100000" />
+
+      <label for="seed">Seed (optional)</label>
+      <input type="number" id="seed" name="seed" placeholder="123" />
+
+      <button type="submit">Profile + Generate</button>
+      <div class="status" id="status"></div>
+    </form>
+  </section>
+
+  <section>
+    <h2>Constraints</h2>
+    <div id="meta"></div>
+    <div id="constraints"></div>
+  </section>
+
+  <section>
+    <h2>Download</h2>
+    <div id="download"></div>
+  </section>
+
+<script>
+const form = document.getElementById('profileForm');
+const statusEl = document.getElementById('status');
+const constraintsEl = document.getElementById('constraints');
+const downloadEl = document.getElementById('download');
+
+function renderConstraints(profile) {
+  if (!profile || !profile.fields || profile.fields.length === 0) {
+    constraintsEl.innerHTML = '<p>No fields detected.</p>';
+    return;
+  }
+  const metaHtml = `
+    <div class="text-sm text-slate-600 mb-2">
+      <span class="mr-4">Encoding: <strong>${profile.encoding || 'utf-8'}</strong></span>
+      <span class="mr-4">Delimiter: <strong>${profile.delimiter || ','}</strong></span>
+      <span class="mr-4">Decimal: <strong>${profile.decimal_separator || '.'}</strong></span>
+    </div>`;
+  document.getElementById('meta').innerHTML = metaHtml;
+  const header = '<tr><th>Field</th><th>Type</th><th>Nullable</th><th>Length</th><th>Range</th><th>Allowed</th></tr>';
+  const rows = profile.fields.map(f => {
+    const len = [f.min_length ?? '-', f.max_length ?? '-'].join(' / ');
+    const range = [f.min_value ?? '-', f.max_value ?? '-'].join(' / ');
+    const allowed = f.allowed_values ? f.allowed_values.slice(0, 10).join(', ') : '-';
+    return `<tr><td>${f.name}</td><td><span class="pill">${f.type}</span></td><td>${f.nullable}</td><td>${len}</td><td>${range}</td><td>${allowed}</td></tr>`;
+  }).join('');
+  constraintsEl.innerHTML = `<table>${header}${rows}</table>`;
+}
+
+async function handleSubmit(event) {
+  event.preventDefault();
+  statusEl.textContent = 'Profiling...';
+  constraintsEl.innerHTML = '';
+  downloadEl.innerHTML = '';
+  const fileInput = document.getElementById('file');
+  if (!fileInput.files.length) {
+    statusEl.textContent = 'Please choose a CSV file.';
+    return;
+  }
+  const mode = document.getElementById('mode').value;
+  const rows = document.getElementById('rows').value;
+  const seed = document.getElementById('seed').value;
+
+  const profileData = new FormData();
+  profileData.append('file', fileInput.files[0]);
+  profileData.append('mode', mode);
+  const profileResp = await fetch('/api/profile', { method: 'POST', body: profileData });
+  if (!profileResp.ok) {
+    const err = await profileResp.json().catch(() => ({}));
+    statusEl.textContent = err.detail || 'Profile failed';
+    return;
+  }
+  const profile = await profileResp.json();
+  renderConstraints(profile);
+  statusEl.textContent = `Profiled ${profile.row_count} rows.`;
+
+  const genData = new FormData();
+  genData.append('file', fileInput.files[0]);
+  genData.append('rows', rows);
+  genData.append('mode', mode);
+  if (seed) genData.append('seed', seed);
+  const genResp = await fetch('/api/generate', { method: 'POST', body: genData });
+  if (!genResp.ok) {
+    const err = await genResp.json().catch(() => ({}));
+    statusEl.textContent = err.detail || 'Generation failed';
+    return;
+  }
+  const blob = await genResp.blob();
+  const url = window.URL.createObjectURL(blob);
+  downloadEl.innerHTML = `<a href="${url}" download="synthetic.csv">Download synthetic.csv</a>`;
+  statusEl.textContent += ' Generated synthetic CSV.';
+}
+
+form.addEventListener('submit', handleSubmit);
+</script>
+</body>
+</html>
